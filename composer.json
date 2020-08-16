@@ -1,0 +1,13 @@
+{
+    "name": "ikdekker/autoshift",
+    "require": {
+        "jupitern/table": "^2.0",
+        "nesbot/carbon": "^2.38"
+    },
+    "authors": [
+        {
+            "name": "Nick Dekker",
+            "email": "nick@freshcoders.nl"
+        }
+    ]
+}
