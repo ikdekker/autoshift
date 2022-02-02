@@ -4,6 +4,11 @@
         "jupitern/table": "^2.0",
         "nesbot/carbon": "^2.38"
     },
+    "autoload": {
+        "psr-4": {
+            "AutoShift\\": "src"
+        }
+    },
     "authors": [
         {
             "name": "Nick Dekker",
