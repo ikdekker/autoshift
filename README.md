@@ -4,7 +4,7 @@ Creates rosters / shifts / schemes or whatever you want to call it for employes 
 ### Preview
 
 2022
-![](https://giant.gfycat.com/ConstantThirdGoat.mp4)
+![](https://gfycat.com/constantthirdgoat.gif)
 #### Historic
 2020
 ![](https://i.imgur.com/J9RcNJo.gif)
