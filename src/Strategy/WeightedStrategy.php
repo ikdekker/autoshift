@@ -28,9 +28,6 @@ class WeightedStrategy implements StrategyInterface {
             $statisticsWeighted[$user] = $pickCount / $weight;
         }
         $ak = array_keys($statisticsWeighted, min($statisticsWeighted));
-        // var_dump($ak);
-        // exit;
-        // var_dump($);
         return array_shift($ak);
     }
 

@@ -1,6 +1,9 @@
 <?php
 
+use AutoShift\Strategy\FairStrategy;
 use AutoShift\Strategy\Picker;
+use AutoShift\Strategy\SequentialStrategy;
+use AutoShift\Strategy\UniformStrategy;
 use AutoShift\Strategy\WeightedStrategy;
 use Carbon\Carbon;
 use Jupitern\Table\Table;
@@ -14,30 +17,23 @@ function transformScheduleData($userData, Carbon $start, $startOnSunday = false)
 {
     $a = [];
     $end = clone $start;
-    $end->addMonth()->endOfMonth();
-
+    // $end->addMonth()->endOfMonth();
+    $end->endOfYear();
+    
     if (!$start->isSunday())
         $start->modify('previous sunday')->startOfDay();
-    // Currently this is done in the Table generation, weekstart is always sunday.
-    // This is less work. Might change someday.
-    // if (!$startOnSunday && !$start->isMonday()) 
-    //     $start->modify('previous monday')->startOfDay();
 
     $userPickCount = array_fill_keys(array_keys($userData), 0);
     $subArray = [];
 
-    $weights = [
-        'Dennis' => 0.55,
-        'Samanta' => 0.5
-    ];
-
-    $picker = new Picker(new WeightedStrategy($weights));
+    // todo: fix fairstrategy
+    // $picker = new Picker(new FairStrategy(20));
+    $picker = new Picker(new UniformStrategy);
 
     for ($date = clone $start; $date <= $end; $date->addDay()) {
         $avail = getAvailableUsers($date, $userData);
 
         $eligible = $picker->getEligible($avail, $userPickCount);
-
         if ($eligible)
             @$userPickCount[$eligible]++;
 
@@ -53,9 +49,8 @@ function transformScheduleData($userData, Carbon $start, $startOnSunday = false)
             $a[] = $subArray;
             $subArray = [];
         }
-
-        // exit;
     }
+
     if (!empty($subArray) && count($subArray) > 1) {
         $a[] = $subArray;
         $subArray = [];
@@ -92,15 +87,14 @@ function renderTableObject($tableData)
 
     $overlapped = [];
     foreach ($tableData as $weekData) {
-        $monthOfWeekstart = (clone $weekData['weekstart'])->format('m');
-        $monthOfFriday = (clone $weekData['weekstart'])->addDays('5')->format('m');
+        $monthOfWeekstart = (clone $weekData['weekstart'])->format('Y-m');
+        $monthOfFriday = (clone $weekData['weekstart'])->addDays('5')->format('Y-m');
         $monthTables[$monthOfWeekstart][] = $weekData;
 
         if ($monthOfWeekstart !== $monthOfFriday) {
             $monthTables[$monthOfFriday][] = $weekData;
         }
     }
-
 
     $days = [
         'monday' => 1,
@@ -110,7 +104,8 @@ function renderTableObject($tableData)
         'friday' => 5,
         'saturday' => 6,
     ];
-    $startSunday = isset($_POST['fdow-sunday']) && $_POST['fdow-sunday'] == "true";
+    $firstDayOfWeekIsSunday = filter_var(@$_POST['fdow-sunday'], FILTER_SANITIZE_STRING);
+    $startSunday = $firstDayOfWeekIsSunday == "true";
 
     $sunday = ['sunday' => $startSunday ? 0 : 7];
     if ($startSunday) {
@@ -119,7 +114,13 @@ function renderTableObject($tableData)
         $days = $days + $sunday;
     }
 
+    // sort months in ascending order
+    ksort($monthTables);
+
     foreach ($monthTables as $m => $monthTableData) {
+        // usort($monthTableData, function($x, $y) {
+        //     return $y['weekstart']->timestamp - $x['weekstart']->timestamp;
+        // });
         $table = \Jupitern\Table\Table::instance();
         $table->attr('table', 'style', 'border-collapse:collapse;background:white;');
         if (count($monthTableData) < 3)
@@ -269,26 +270,27 @@ function getRowHtml($value = '')
     return $html;
 }
 
-// $_POST['month']=7;
-// $_POST['fdow-sunday']=false;
-$start = Carbon::parse("2022-" . $_POST['month'] . '-01');
+$year = filter_var($_POST['year'], FILTER_SANITIZE_NUMBER_INT);
+$month = filter_var($_POST['month'], FILTER_SANITIZE_NUMBER_INT);
+$employees = filter_var($_POST['employees'], FILTER_SANITIZE_STRING);
+$workingDays = (array) $_POST['working_days'];
+$useWorkingDays = !empty($workingDays);
+
+$start = Carbon::parse($year . "-" . $month . '-01');
+
 // $start = Carbon::parse("2020-8-01");
 //temporary userdata fill for all workdays
 $userData = [];
-$employees = explode(',', $_POST['employees']);
-
-$dateLooper = Carbon::parse('2022-01-01');
+$employees = explode(',', $employees);
+$dateLooper = Carbon::parse($year . '-01-01');
 while ($dateLooper->dayOfYear < 365) {
-    if ($dateLooper->dayOfWeek == 0 || $dateLooper->dayOfWeek == 6) {
-        $dateLooper->addDay();
-        continue;
-    }
     foreach ($employees as $emp) {
-        $userData[$emp][2022][$dateLooper->dayOfYear] = true;
+        if ($workingDays[$emp][$dateLooper->dayOfWeek] == 'true' || ($useWorkingDays == false && !in_array($dateLooper->dayOfWeek, [0,6]))) {
+            $userData[$emp][$year][$dateLooper->dayOfYear] = true;
+        }
     }
     $dateLooper->addDay();
 }
-
 $a = transformScheduleData($userData, $start);
 
 if ($_POST['rendermode'] == 'table') {
